@@ -1,70 +1,93 @@
-import React from 'react';
+import React, {useState, useEffect, Suspense} from 'react';
+import ReactDOM from 'react-dom';
 import axios from 'axios';
 import './App.css';
 
 import Button from './components/Button';
-import Result from './components/Result';
+import {Themes, ThemesContext} from './components/Themes';
 
-class App extends React.Component {
-  constructor(props) {
-    super(props);
-  
-    this.state = {
-      users: null,
-      isLoadings: null,
-      requestError: null
-    };
+const Result = React.lazy(() => import('./components/Result'));
 
-    this.handleSend = this.handleSend.bind(this);
-    this.handleCancel = this.handleCancel.bind(this);
-    this.handleRetry = this.handleRetry.bind(this);
-  }
+let source; // пришлось вынести сюда, так как (неожиданно) в handleCancel  source всегда undefined... Я надеялся скоуп и замыкание будет работать
 
-  handleSend() {  
-    this.CancelToken = axios.CancelToken;
-    this.source = this.CancelToken.source();
+function App() {
+  const [users, setUsers] = useState(null);
+  const [isLoadings, setIsLoadings] = useState(null);
+  const [requestError, setRequestError] = useState(null);
+  const [theme, setTheme] = useState(Themes.light);
 
-    this.setState({ isLoadings: true, requestError: null });
+  let CancelToken;
+  let cancelBtnRef = React.createRef();
+
+  useEffect(() => {
+    // не понял к чему мне тут эффект использовать - если сюда вставить вызов handleSend то у меня зайдет в цикл обновление (didMount + didUpdate).
+    // кроме того - добавление сюда handleSend будет делать запрос сразу после монтирования компоненты
+
+    // единственное что можно (я так понял и нужно) вставить - это апдейт фокуса потому что в handleSend он похоже сбрасывается сразу так как идет апдейт
+    isLoadings && cancelBtnRef.current.focus();
+  });
+
+  function handleSend() {  
+    CancelToken = axios.CancelToken;
+    source = CancelToken.source();
+    setIsLoadings(true);
+    setRequestError(null);
     axios.get(`https://jsonplaceholder.typicode.com/users`, {
-        cancelToken: this.source.token
+        cancelToken: source.token
       })
       .then(res => {
         const users = res.data;
-        this.setState({ users });
+        setUsers(users);
       })
-      .catch((error) => axios.isCancel(error) ? this.setState({ requestError: null }) : this.handleError(error))
-      .finally(() => this.handleSuccess());
+      .catch((error) => axios.isCancel(error) ? setRequestError(null) : handleError(error))
+      .finally(() => handleSuccess());
   }
 
-  handleCancel() {
-    this.source.cancel('Operation canceled by the user.');
+  function handleCancel() {
+    source && source.cancel('Operation canceled by the user.');
   }
 
-  handleRetry() {
-    this.handleSend();
+  function handleRetry() {
+    handleSend();
   }
 
-  handleError(error) {
-    this.setState({ requestError: error });
+  function handleError(error) {
+    setRequestError(error);
   }
 
-  handleSuccess() {
-    this.setState({ isLoadings: false });
+  function handleSuccess() {
+    setIsLoadings(false);
   }
 
-  render() {
-    let {users, isLoadings, requestError} = this.state;
-    return (
-      <div className="App">
-        <Button onClickHandler={this.handleSend} text='Send' disabled={requestError || isLoadings} />
-        <Button onClickHandler={this.handleCancel} text='Cancel' disabled={requestError || !isLoadings} />
-        <Button onClickHandler={this.handleRetry} text='Retry' disabled={!requestError} />
+  function handleThemeChange(theme) {
+    setTheme(theme);
+  }
+
+  return (
+    <ThemesContext.Provider value={theme}>
+      <div className="App" style={theme}>
+        <div className="App-themes">
+           Current color: {theme.color}
+          <Button onClickHandler={()=>handleThemeChange(Themes.light)} text='Light' />
+          <Button onClickHandler={()=>handleThemeChange(Themes.dark)} text='Dark' />
+        </div>
+        <Button onClickHandler={handleSend} text='Send' disabled={requestError || isLoadings} />
+        <Button onClickHandler={handleCancel} text='Cancel' disabled={requestError || !isLoadings} ref={cancelBtnRef} />
+        <Button onClickHandler={handleRetry} text='Retry' disabled={!requestError}/>
         {isLoadings && <div className="App-loading">Loading...</div>}
         {requestError && <div className="App-error">ERROR, please retry...</div>}
-        {users && <Result users={users}/>}
+        {users && 
+          <Suspense fallback={ReactDOM.createPortal((<div className="App-result">Preparing results...</div>), document.getElementById('results'))}>
+            <Result users={users}/>
+          </Suspense>
+        }
       </div>
-    );
-  }
+    </ThemesContext.Provider>
+  );
 }
+
+// Вопросы:
+// 1. По идее, лейзи лоадиг должен начаться ДО или ВМЕСТЕ с отправкой аякс запроса (щас - наоборот) - как этим управлять?
+// 2. Куда теряется переменная source в handleCancel если ее не обьявить возле импорта?!
 
 export default App;
