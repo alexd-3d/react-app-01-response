@@ -12,6 +12,10 @@
   opacity: 0.3;
 }
 
+.App-button:focus {
+  outline: 3px solid blueviolet;
+}
+
 .App-result {
   max-width: 600px;
   margin: 0 auto;
@@ -19,6 +23,10 @@
 
 .App-error {
   color: red;
+}
+
+.App-loading {
+  color: silver;
 }
 
 .App-result-list {
