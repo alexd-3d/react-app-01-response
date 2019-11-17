@@ -1,9 +1,11 @@
-import React from 'react';
+import React, {Suspense} from 'react';
+import ReactDOM from 'react-dom';
 import axios from 'axios';
 import './App.css';
 
 import Button from './components/Button';
-import Result from './components/Result';
+
+const Result = React.lazy(() => import('./components/Result'));
 
 class App extends React.Component {
   constructor(props) {
@@ -61,7 +63,11 @@ class App extends React.Component {
         <Button onClickHandler={this.handleRetry} text='Retry' disabled={!requestError} />
         {isLoadings && <div className="App-loading">Loading...</div>}
         {requestError && <div className="App-error">ERROR, please retry...</div>}
-        {users && <Result users={users}/>}
+        {users && 
+          <Suspense fallback={ReactDOM.createPortal((<div className="App-result">Preparing results...</div>), document.getElementById('results'))}>
+            <Result users={users}/>
+          </Suspense>
+        }
       </div>
     );
   }
