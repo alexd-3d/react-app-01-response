@@ -1,4 +1,7 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
+
+import ResultUI from './ResultUI';
 
 export default function Result(props) {
     let {users} = props;
@@ -7,11 +10,9 @@ export default function Result(props) {
         return usersList.map(user => <li key={user.id}>Name: {user.name}, E-mail: {user.email}</li>)
     }
 
-    return (
-        <div className="App-result">
-            <ul className="App-result-list">
-                {showUsers(users)}
-            </ul>
-        </div>
-    )
+    return ReactDOM.createPortal(
+        <ResultUI>
+            {showUsers(users)}
+        </ResultUI>,
+        document.getElementById('results'));
 }
